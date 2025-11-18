@@ -3,10 +3,16 @@
 const OPENAI_EMBEDDING_DIMENSION = 1536;
 const TOGETHER_EMBEDDING_DIMENSION = 768;
 const OLLAMA_EMBEDDING_DIMENSION = 1024;
+const EMBEDDINGGEMMA_DIMENSION = 768;
 
-export const EMBEDDING_DIMENSION: number = OLLAMA_EMBEDDING_DIMENSION;
+export const EMBEDDING_DIMENSION: number = EMBEDDINGGEMMA_DIMENSION;
 
 export function detectMismatchedLLMProvider() {
+  // Skip detection if using Ollama for embeddings in hybrid setup
+  if (process.env.OLLAMA_EMBEDDING_HOST) {
+    return;
+  }
+
   switch (EMBEDDING_DIMENSION) {
     case OPENAI_EMBEDDING_DIMENSION:
       if (!process.env.OPENAI_API_KEY) {
@@ -16,7 +22,9 @@ export function detectMismatchedLLMProvider() {
       }
       break;
     case TOGETHER_EMBEDDING_DIMENSION:
-      if (!process.env.TOGETHER_API_KEY) {
+    case EMBEDDINGGEMMA_DIMENSION:
+      // Both Together.ai and embeddinggemma use 768 dimensions
+      if (!process.env.TOGETHER_API_KEY && !process.env.OLLAMA_EMBEDDING_MODEL) {
         throw new Error(
           "Are you trying to use Together.ai? If so, run: npx convex env set TOGETHER_API_KEY 'your-key'",
         );
@@ -204,7 +212,9 @@ export async function tryPullOllama(model: string, error: string) {
 
 export async function fetchEmbeddingBatch(texts: string[]) {
   const config = getLLMConfig();
-  if (config.provider === 'ollama') {
+  // Support hybrid setup: use Ollama for embeddings even when chat uses different provider
+  const useOllamaEmbeddings = config.provider === 'ollama' || process.env.OLLAMA_EMBEDDING_HOST;
+  if (useOllamaEmbeddings) {
     return {
       ollama: true as const,
       embeddings: await Promise.all(
@@ -687,13 +697,16 @@ export class ChatCompletionContent {
 
 export async function ollamaFetchEmbedding(text: string) {
   const config = getLLMConfig();
+  // Support separate Ollama host for embeddings in hybrid setups
+  const embeddingHost = process.env.OLLAMA_EMBEDDING_HOST ?? config.url;
+  const embeddingModel = process.env.OLLAMA_EMBEDDING_MODEL ?? config.embeddingModel;
   const { result } = await retryWithBackoff(async () => {
-    const resp = await fetch(config.url + '/api/embeddings', {
+    const resp = await fetch(embeddingHost + '/api/embeddings', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ model: config.embeddingModel, prompt: text }),
+      body: JSON.stringify({ model: embeddingModel, prompt: text }),
     });
     if (resp.status === 404) {
       const error = await resp.text();

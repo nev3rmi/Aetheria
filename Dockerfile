@@ -15,18 +15,16 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Install NVM, Node.js, and npm
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.2/install.sh | bash && \
-    export NVM_DIR="$HOME/.nvm" && \
-    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && \
-    nvm install 18 && \
-    nvm use 18
-
-# Add NVM to PATH
 ENV NVM_DIR /root/.nvm
-ENV NODE_VERSION 18.0.0
-RUN . $NVM_DIR/nvm.sh && nvm install $NODE_VERSION
-ENV NODE_PATH $NVM_DIR/versions/node/v$NODE_VERSION/lib/node_modules
-ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.2/install.sh | bash && \
+    . $NVM_DIR/nvm.sh && \
+    nvm install 18 && \
+    nvm use 18 && \
+    nvm alias default 18
+
+# Add Node to PATH (use wildcard to match actual version)
+RUN ln -sf $NVM_DIR/versions/node/v18.*/bin/* /usr/local/bin/
+ENV PATH $NVM_DIR/versions/node/v18.20.8/bin:$PATH
 
 # Set the working directory
 WORKDIR /usr/src/app
