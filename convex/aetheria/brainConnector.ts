@@ -159,6 +159,12 @@ export class N8nBrain implements AgentBrain {
       headers['Authorization'] = `Bearer ${this.apiKey}`;
     }
 
+    // Format request for n8n AI Agent (expects chatInput and sessionID)
+    const n8nPayload = {
+      chatInput: JSON.stringify(request, null, 2),
+      sessionID: request.agentId,
+    };
+
     console.log(`[N8n Brain] Calling webhook for agent ${request.agentName}`, {
       url: this.webhookUrl,
       callType: request.callType,
@@ -171,7 +177,7 @@ export class N8nBrain implements AgentBrain {
       const response = await fetch(this.webhookUrl, {
         method: 'POST',
         headers,
-        body: JSON.stringify(request),
+        body: JSON.stringify(n8nPayload),
         signal: controller.signal,
       });
 
@@ -182,23 +188,38 @@ export class N8nBrain implements AgentBrain {
         throw new Error(`n8n webhook returned ${response.status}: ${errorText}`);
       }
 
-      const data = await response.json();
+      const responseText = await response.text();
 
-      // Validate response structure
-      if (!data.thought || !data.action) {
-        throw new Error('Invalid brain response: missing thought or action');
+      // Parse n8n streaming response format
+      // Response is newline-delimited JSON like:
+      // {"type":"item","content":"Hello"}
+      // {"type":"item","content":" world"}
+      const lines = responseText.trim().split('\n');
+      let fullText = '';
+
+      for (const line of lines) {
+        try {
+          const item = JSON.parse(line);
+          if (item.type === 'item' && item.content) {
+            fullText += item.content;
+          }
+        } catch (e) {
+          // Skip invalid JSON lines
+          continue;
+        }
       }
 
-      if (!data.action.type || !data.action.params) {
-        throw new Error('Invalid brain response: action must have type and params');
-      }
+      console.log(`[N8n Brain] Received AI response (${fullText.length} chars)`);
 
-      console.log(`[N8n Brain] Received decision from ${request.agentName}:`, {
-        thought: data.thought,
-        actionType: data.action.type,
+      // Convert AI text response into structured action
+      const brainResponse = this.parseAIResponse(fullText, request);
+
+      console.log(`[N8n Brain] Converted to action:`, {
+        thought: brainResponse.thought.substring(0, 100),
+        actionType: brainResponse.action.type,
       });
 
-      return data as AgentBrainResponse;
+      return brainResponse;
     } catch (error) {
       clearTimeout(timeoutId);
 
@@ -209,6 +230,67 @@ export class N8nBrain implements AgentBrain {
       console.error(`[N8n Brain] Call failed:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Parse AI text response and convert to structured action
+   */
+  private parseAIResponse(aiText: string, request: AgentBrainRequest): AgentBrainResponse {
+    // Extract thought (first 200 chars of AI response)
+    const thought = aiText.substring(0, 200).trim();
+
+    // Determine action based on context and AI response
+    let action: AgentBrainResponse['action'];
+
+    // Check if there are tasks available
+    if (request.availableTasks && request.availableTasks.length > 0 && !request.currentTask) {
+      // Agent has no task but tasks are available - suggest claiming one
+      action = {
+        type: 'claim_task',
+        params: {
+          taskId: request.availableTasks[0].id,
+          reason: 'Starting work on available task',
+        },
+      };
+    }
+    // Check if there are unread messages
+    else if (request.inboxMessages && request.inboxMessages.length > 0) {
+      const message = request.inboxMessages[0];
+      action = {
+        type: 'send_message',
+        params: {
+          toAgent: message.fromAgent,
+          messageType: 'direct',
+          content: thought.substring(0, 150),
+          threadId: message.threadId,
+        },
+      };
+    }
+    // Check if working on a task
+    else if (request.currentTask) {
+      action = {
+        type: 'update_task',
+        params: {
+          taskId: request.currentTask.id,
+          status: 'in_progress',
+          comment: thought.substring(0, 100),
+        },
+      };
+    }
+    // Default: wait and think
+    else {
+      action = {
+        type: 'wait',
+        params: {
+          reason: 'Analyzing situation and planning next steps',
+        },
+      };
+    }
+
+    return {
+      thought: aiText,
+      action,
+    };
   }
 
   async getConfig() {

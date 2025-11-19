@@ -416,6 +416,7 @@ export const storeUnassignedTask = internalMutation({
     reporter: v.optional(v.string()),
     parentKey: v.optional(v.string()),
     webhookEvent: v.string(),
+    agentLabel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();

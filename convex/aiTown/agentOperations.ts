@@ -103,6 +103,25 @@ export const agentDoSomething = internalAction({
     const { player, agent } = args;
     const map = new WorldMap(args.map);
     const now = Date.now();
+
+    // Check if this agent has a brain configured
+    const hasBrain = await ctx.runQuery(internal.aetheria.aetheriaOperations.agentHasBrain, {
+      worldId: args.worldId,
+      agentId: agent.id,
+    });
+
+    // If brain is configured, route to brain decision instead
+    if (hasBrain) {
+      console.log(`Agent ${agent.id} has brain, routing to brain decision`);
+      await ctx.runAction(internal.aetheria.aetheriaOperations.agentMakeBrainDecision, {
+        worldId: args.worldId,
+        playerId: player.id,
+        agentId: agent.id,
+        operationId: args.operationId,
+        callType: 'decision',
+      });
+      return;
+    }
     // Don't try to start a new conversation if we were just in one.
     const justLeftConversation =
       agent.lastConversation && now < agent.lastConversation + CONVERSATION_COOLDOWN;

@@ -13,10 +13,16 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as aetheria_actionExecutor from "../aetheria/actionExecutor.js";
 import type * as aetheria_aetheriaInputs from "../aetheria/aetheriaInputs.js";
+import type * as aetheria_aetheriaOperations from "../aetheria/aetheriaOperations.js";
 import type * as aetheria_brainConnector from "../aetheria/brainConnector.js";
+import type * as aetheria_contextBuilder from "../aetheria/contextBuilder.js";
 import type * as aetheria_jiraClient from "../aetheria/jiraClient.js";
 import type * as aetheria_jiraWebhook from "../aetheria/jiraWebhook.js";
+import type * as aetheria_messaging from "../aetheria/messaging.js";
+import type * as aetheria_tasks from "../aetheria/tasks.js";
+import type * as aetheria_testBrain from "../aetheria/testBrain.js";
 import type * as aetheria_tools_registry from "../aetheria/tools/registry.js";
 import type * as agent_conversation from "../agent/conversation.js";
 import type * as agent_embeddingsCache from "../agent/embeddingsCache.js";
@@ -71,10 +77,16 @@ import type * as world from "../world.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  "aetheria/actionExecutor": typeof aetheria_actionExecutor;
   "aetheria/aetheriaInputs": typeof aetheria_aetheriaInputs;
+  "aetheria/aetheriaOperations": typeof aetheria_aetheriaOperations;
   "aetheria/brainConnector": typeof aetheria_brainConnector;
+  "aetheria/contextBuilder": typeof aetheria_contextBuilder;
   "aetheria/jiraClient": typeof aetheria_jiraClient;
   "aetheria/jiraWebhook": typeof aetheria_jiraWebhook;
+  "aetheria/messaging": typeof aetheria_messaging;
+  "aetheria/tasks": typeof aetheria_tasks;
+  "aetheria/testBrain": typeof aetheria_testBrain;
   "aetheria/tools/registry": typeof aetheria_tools_registry;
   "agent/conversation": typeof agent_conversation;
   "agent/embeddingsCache": typeof agent_embeddingsCache;

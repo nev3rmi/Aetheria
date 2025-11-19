@@ -43,6 +43,16 @@ export const aetheriaTables = {
       v.literal('failed'), // Task failed
       v.literal('blocked'), // Task blocked, needs help
     ),
+    progressLog: v.optional(
+      v.array(
+        v.object({
+          timestamp: v.number(),
+          agentId: playerId,
+          status: v.string(),
+          comment: v.string(),
+        }),
+      ),
+    ),
     lastSyncedAt: v.number(), // Last time we synced with Jira
     metadata: v.optional(
       v.object({
@@ -50,13 +60,29 @@ export const aetheriaTables = {
         issueType: v.optional(v.string()),
         reporter: v.optional(v.string()),
         parentKey: v.optional(v.string()), // For subtasks
+        blockedReason: v.optional(v.string()),
+        blockedOn: v.optional(
+          v.object({
+            type: v.union(
+              v.literal('waiting_for_agent'),
+              v.literal('waiting_for_task'),
+              v.literal('missing_info'),
+              v.literal('external_dependency'),
+            ),
+            details: v.any(),
+          }),
+        ),
+        blockedAt: v.optional(v.number()),
+        result: v.optional(v.any()),
+        completedBy: v.optional(playerId),
       }),
     ),
   })
     .index('by_agent', ['worldId', 'assignedAgentId', 'status'])
     .index('by_status', ['worldId', 'status', 'receivedAt'])
     .index('by_issue_key', ['issueKey'])
-    .index('by_labels', ['worldId', 'labels']),
+    .index('by_labels', ['worldId', 'labels'])
+    .index('by_world', ['worldId', 'receivedAt']),
 
   /**
    * Tracks Jira webhook deliveries for idempotency
@@ -105,7 +131,8 @@ export const aetheriaTables = {
   })
     .index('by_agent', ['worldId', 'agentId'])
     .index('by_name', ['worldId', 'agentName'])
-    .index('by_active', ['worldId', 'isActive']),
+    .index('by_active', ['worldId', 'isActive'])
+    .index('by_world', ['worldId', 'createdAt']),
 
   /**
    * Logs every call to external brains for debugging and analytics
@@ -128,7 +155,8 @@ export const aetheriaTables = {
   })
     .index('by_agent', ['worldId', 'agentId', 'timestamp'])
     .index('by_type', ['worldId', 'callType', 'timestamp'])
-    .index('by_success', ['worldId', 'success', 'timestamp']),
+    .index('by_success', ['worldId', 'success', 'timestamp'])
+    .index('by_world', ['worldId', 'timestamp']),
 
   // ============================================================================
   // TOOL EXECUTION
@@ -220,7 +248,8 @@ export const aetheriaTables = {
     .index('by_sender', ['worldId', 'fromAgentId', 'sentAt'])
     .index('by_thread', ['worldId', 'threadId', 'sentAt'])
     .index('by_task', ['relatedTaskId', 'sentAt'])
-    .index('unread', ['worldId', 'toAgentId', 'isRead', 'sentAt']),
+    .index('unread', ['worldId', 'toAgentId', 'isRead', 'sentAt'])
+    .index('by_world', ['worldId', 'sentAt']),
 
   /**
    * Tracks task delegation between agents
@@ -244,10 +273,14 @@ export const aetheriaTables = {
     createdAt: v.number(),
     respondedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
+    acceptedAt: v.optional(v.number()),
+    rejectedAt: v.optional(v.number()),
+    metadata: v.optional(v.any()),
   })
     .index('by_parent_task', ['parentTaskId'])
     .index('by_delegate', ['worldId', 'toAgentId', 'status'])
-    .index('by_delegator', ['worldId', 'fromAgentId', 'createdAt']),
+    .index('by_delegator', ['worldId', 'fromAgentId', 'createdAt'])
+    .index('by_world', ['worldId', 'createdAt']),
 
   // ============================================================================
   // OBSERVABILITY & LOGGING
