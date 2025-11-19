@@ -597,10 +597,9 @@ export const getAgentBrain = internalQuery({
     worldId: v.id('worlds'),
   },
   handler: async (ctx, args) => {
-    // TODO: Fix type - agentId should be parsed to proper player ID type
     const brain = await ctx.db
       .query('agentBrains')
-      .withIndex('by_name', (q) => q.eq('worldId', args.worldId).eq('agentName', args.agentId))
+      .withIndex('by_agent', (q) => q.eq('worldId', args.worldId).eq('agentId', args.agentId))
       .first();
 
     return brain;
