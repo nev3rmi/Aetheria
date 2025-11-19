@@ -85,6 +85,7 @@ async function buildAgentBrainRequestInternal(
     availableTasks,
     nearbyAgents,
     agentBrain,
+    agentDescription,
   ] = await Promise.all([
     getRecentMemories(ctx, args.worldId, args.agentId),
     getInboxMessages(ctx, args.worldId, args.agentId),
@@ -92,6 +93,7 @@ async function buildAgentBrainRequestInternal(
     getAvailableTasks(ctx, args.worldId),
     getNearbyAgents(ctx, args.worldId, args.agentId),
     getAgentBrain(ctx, args.worldId, args.agentId),
+    getAgentDescription(ctx, args.worldId, args.agentId),
   ]);
 
   // Build request
@@ -99,6 +101,8 @@ async function buildAgentBrainRequestInternal(
     agentId: args.agentId,
     agentName: args.agentName,
     worldId: args.worldId,
+    identity: agentDescription?.identity,
+    plan: agentDescription?.plan,
     currentState: determineAgentState(currentTask),
     recentMemories,
     inboxMessages,
@@ -368,6 +372,34 @@ async function getAgentBrain(
     return brain;
   } catch (error) {
     console.error('[Context Builder] Error fetching agent brain:', error);
+    return null;
+  }
+}
+
+/**
+ * Get agent description (personality and goals)
+ */
+async function getAgentDescription(
+  ctx: QueryCtx,
+  worldId: Id<'worlds'>,
+  agentId: string
+): Promise<{ identity: string; plan: string } | null> {
+  try {
+    const agentDesc = await ctx.db
+      .query('agentDescriptions')
+      .filter((q) => q.eq(q.field('agentId'), agentId))
+      .first();
+
+    if (!agentDesc) {
+      return null;
+    }
+
+    return {
+      identity: agentDesc.identity || '',
+      plan: agentDesc.plan || '',
+    };
+  } catch (error) {
+    console.error('[Context Builder] Error fetching agent description:', error);
     return null;
   }
 }

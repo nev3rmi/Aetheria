@@ -24,6 +24,7 @@ import type * as aetheria_messaging from "../aetheria/messaging.js";
 import type * as aetheria_tasks from "../aetheria/tasks.js";
 import type * as aetheria_testBrain from "../aetheria/testBrain.js";
 import type * as aetheria_tools_registry from "../aetheria/tools/registry.js";
+import type * as aetheria_tools from "../aetheria/tools.js";
 import type * as agent_conversation from "../agent/conversation.js";
 import type * as agent_embeddingsCache from "../agent/embeddingsCache.js";
 import type * as agent_memory from "../agent/memory.js";
@@ -88,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   "aetheria/tasks": typeof aetheria_tasks;
   "aetheria/testBrain": typeof aetheria_testBrain;
   "aetheria/tools/registry": typeof aetheria_tools_registry;
+  "aetheria/tools": typeof aetheria_tools;
   "agent/conversation": typeof agent_conversation;
   "agent/embeddingsCache": typeof agent_embeddingsCache;
   "agent/memory": typeof agent_memory;

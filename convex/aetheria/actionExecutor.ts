@@ -8,6 +8,7 @@ import { ActionCtx } from '../_generated/server';
 import { Id } from '../_generated/dataModel';
 import { internal } from '../_generated/api';
 import { AgentBrainResponse } from './brainConnector';
+import { executeTool as executeToolImpl } from './tools';
 
 /**
  * Execute an action returned by the brain
@@ -71,17 +72,44 @@ async function executeTool(
   agentId: string,
   params: { tool: string; input: any }
 ): Promise<{ success: boolean; result?: any; error?: string }> {
-  try {
-    // TODO: Implement tool execution
-    // This should call the tool registry and execute the requested tool
-    console.log(`[Action Executor] Tool execution: ${params.tool}`, params.input);
+  const startTime = Date.now();
 
-    // Placeholder - return success for now
-    return {
-      success: true,
-      result: { message: 'Tool execution placeholder' },
-    };
+  try {
+    console.log(`[Action Executor] Executing tool: ${params.tool}`, params.input);
+
+    // Execute the tool using the tool registry
+    const toolResult = await executeToolImpl(params.tool, params.input);
+
+    const duration = Date.now() - startTime;
+
+    // Log tool execution
+    await ctx.runMutation(internal.aetheria.tasks.logToolExecution, {
+      worldId,
+      agentId,
+      toolName: params.tool,
+      input: params.input,
+      output: toolResult.result,
+      success: toolResult.success,
+      error: toolResult.error,
+      duration,
+    });
+
+    return toolResult;
   } catch (error) {
+    const duration = Date.now() - startTime;
+
+    // Log failed execution
+    await ctx.runMutation(internal.aetheria.tasks.logToolExecution, {
+      worldId,
+      agentId,
+      toolName: params.tool,
+      input: params.input,
+      output: null,
+      success: false,
+      error: error instanceof Error ? error.message : 'Tool execution failed',
+      duration,
+    });
+
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Tool execution failed',

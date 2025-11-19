@@ -18,6 +18,8 @@ export interface AgentBrainRequest {
   agentId: string;
   agentName: string;
   worldId: string;
+  identity?: string; // Agent personality/character description
+  plan?: string; // Agent's goals and motivations
 
   // Agent State
   currentState: 'idle' | 'thinking' | 'working' | 'blocked';

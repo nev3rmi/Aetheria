@@ -466,3 +466,34 @@ export const getTaskStats = internalQuery({
     };
   },
 });
+
+/**
+ * Log tool execution for observability
+ */
+export const logToolExecution = internalMutation({
+  args: {
+    worldId: v.id('worlds'),
+    agentId: playerId,
+    taskId: v.optional(v.id('jiraTasks')),
+    toolName: v.string(),
+    input: v.any(),
+    output: v.any(),
+    success: v.boolean(),
+    error: v.optional(v.string()),
+    duration: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert('toolExecutions', {
+      worldId: args.worldId,
+      agentId: args.agentId,
+      taskId: args.taskId,
+      toolName: args.toolName,
+      input: args.input,
+      output: args.output,
+      success: args.success,
+      error: args.error,
+      duration: args.duration,
+      executedAt: Date.now(),
+    });
+  },
+});

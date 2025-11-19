@@ -30,6 +30,7 @@ export const configureBrainForAgent = mutation({
       // Update existing
       await ctx.db.patch(existing._id, {
         webhookUrl: args.webhookUrl,
+        permittedTools: ['web_search'], // Update tools
         isActive: true,
         lastCalledAt: undefined,
         lastError: undefined,
@@ -45,18 +46,13 @@ export const configureBrainForAgent = mutation({
       brainType: 'n8n',
       webhookUrl: args.webhookUrl,
       permittedTools: [
-        'read_code',
-        'edit_code',
-        'run_tests',
-        'git_commit',
-        'search_web',
-        'read_docs',
+        'web_search', // Web search using DuckDuckGo
       ],
       configuration: {
-        timeout: 30000,
+        timeout: 60000, // 60 seconds for web search
         maxRetries: 2,
-        personality: 'Helpful AI assistant that can code and solve problems',
-        specialization: ['software engineering', 'debugging', 'collaboration'],
+        personality: 'Curious AI agent who loves to gossip and learn about the world',
+        specialization: ['information gathering', 'web research', 'social interaction'],
       },
       isActive: true,
       createdAt: Date.now(),
