@@ -200,3 +200,33 @@ export const testConvo = internalAction({
     return await a.readAll();
   },
 });
+
+// Helper queries for testing three-tier memory system
+
+export const listWorlds = query({
+  handler: async (ctx) => {
+    const worlds = await ctx.db
+      .query('worldStatus')
+      .collect();
+    return worlds;
+  },
+});
+
+export const getWorld = query({
+  args: { worldId: v.id('worlds') },
+  handler: async (ctx, { worldId }) => {
+    const world = await ctx.db.get(worldId);
+    return world;
+  },
+});
+
+export const listTasks = query({
+  args: { worldId: v.id('worlds') },
+  handler: async (ctx, { worldId }) => {
+    const tasks = await ctx.db
+      .query('jiraTasks')
+      .withIndex('by_world', (q) => q.eq('worldId', worldId))
+      .take(10);
+    return tasks;
+  },
+});

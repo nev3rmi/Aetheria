@@ -130,7 +130,10 @@ async function buildAgentBrainRequestInternal(
 }
 
 /**
- * Get recent memories for an agent
+ * Get recent memories for an agent (SHORT-TERM TIER)
+ *
+ * This retrieves the last 10 personal memories.
+ * For session-based and long-term memories, use getContextForAgent action.
  */
 async function getRecentMemories(
   ctx: QueryCtx,
@@ -138,7 +141,7 @@ async function getRecentMemories(
   agentId: string
 ): Promise<AgentBrainRequest['recentMemories']> {
   try {
-    // Query recent memories (last 10)
+    // TIER 1: SHORT-TERM MEMORY (last 10 personal events)
     const memories = await ctx.db
       .query('memories')
       .withIndex('playerId', (q) => q.eq('playerId', agentId as any))

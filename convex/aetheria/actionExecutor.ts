@@ -65,12 +65,14 @@ export async function executeAction(
 
 /**
  * Execute a tool
+ *
+ * Enhanced with Jira comment posting for research tools (web_search, etc.)
  */
 async function executeTool(
   ctx: ActionCtx,
   worldId: Id<'worlds'>,
   agentId: string,
-  params: { tool: string; input: any }
+  params: { tool: string; input: any; taskId?: string }
 ): Promise<{ success: boolean; result?: any; error?: string }> {
   const startTime = Date.now();
 
@@ -83,7 +85,7 @@ async function executeTool(
     const duration = Date.now() - startTime;
 
     // Log tool execution
-    await ctx.runMutation(internal.aetheria.tasks.logToolExecution, {
+    const toolExecutionId = await ctx.runMutation(internal.aetheria.tasks.logToolExecution, {
       worldId,
       agentId,
       toolName: params.tool,
@@ -93,6 +95,19 @@ async function executeTool(
       error: toolResult.error,
       duration,
     });
+
+    // POST RESEARCH RESULTS TO JIRA (TIER 2: Session Memory)
+    // If this is a research tool and we have a task, post findings to Jira
+    const researchTools = ['web_search', 'code_search', 'documentation_lookup'];
+    if (researchTools.includes(params.tool) && params.taskId && toolResult.success) {
+      await postResearchToJira(ctx, worldId, agentId, params.taskId, {
+        tool: params.tool,
+        input: params.input,
+        result: toolResult.result,
+        duration,
+        timestamp: Date.now(),
+      });
+    }
 
     return toolResult;
   } catch (error) {
@@ -114,6 +129,81 @@ async function executeTool(
       success: false,
       error: error instanceof Error ? error.message : 'Tool execution failed',
     };
+  }
+}
+
+/**
+ * Post research findings to Jira comment (Session Memory - Tier 2)
+ *
+ * Also feeds the comment to Graphiti for long-term knowledge (Tier 3)
+ */
+async function postResearchToJira(
+  ctx: ActionCtx,
+  worldId: Id<'worlds'>,
+  agentId: string,
+  taskId: string,
+  research: {
+    tool: string;
+    input: any;
+    result: any;
+    duration: number;
+    timestamp: number;
+  }
+) {
+  try {
+    // Get agent name and task details
+    const [agentDesc, task] = await Promise.all([
+      ctx.runQuery(internal.aetheria.contextBuilder.getAgentDescription, {
+        worldId,
+        agentId,
+      }),
+      ctx.runQuery(internal.aetheria.memoryRetrieval.getTaskDetails, {
+        taskId: taskId as Id<'jiraTasks'>,
+      }),
+    ]);
+
+    if (!task) {
+      console.error('[Action Executor] Task not found, skipping Jira comment');
+      return;
+    }
+
+    const agentName = agentDesc?.identity?.split(',')[0]?.replace('You are ', '') || 'Agent';
+
+    // Format research findings
+    const { formatAgentComment } = await import('./jiraCommentService');
+    const commentBody = formatAgentComment({
+      agentName,
+      action: `Research completed using ${research.tool}`,
+      findings: JSON.stringify(research.result, null, 2),
+      toolsUsed: [research.tool],
+      timestamp: research.timestamp,
+      nextSteps: 'Continuing task analysis...',
+    });
+
+    // Post to Jira
+    const { addJiraComment } = await import('./jiraCommentService');
+    await ctx.runAction(addJiraComment, {
+      issueKey: task.issueKey,
+      commentBody,
+    });
+
+    console.log(`[Action Executor] Posted research findings to Jira: ${task.issueKey}`);
+
+    // TIER 3: Feed to Graphiti for long-term knowledge
+    const { processJiraCommentToGraphiti } = await import('./graphitiService');
+    await ctx.runAction(processJiraCommentToGraphiti, {
+      worldId,
+      taskId: taskId as Id<'jiraTasks'>,
+      issueKey: task.issueKey,
+      commentBody,
+      agentName,
+      timestamp: research.timestamp,
+    });
+
+    console.log(`[Action Executor] Processed research into Graphiti knowledge graph`);
+  } catch (error) {
+    console.error('[Action Executor] Error posting research to Jira:', error);
+    // Don't throw - we don't want to block the main workflow
   }
 }
 
